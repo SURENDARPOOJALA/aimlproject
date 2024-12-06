@@ -1,0 +1,97 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# Load the dataset
+data = pd.read_csv('/Customer Purchase (1).csv')
+
+# Check and handle missing columns
+if 'Purchase Amount (USD)' not in data.columns:
+    print("Column 'Purchase Amount (USD)' not found. Adding random values.")
+    data['Purchase Amount (USD)'] = np.random.randint(50, 500, size=len(data))
+
+# Handle missing values
+data.ffill(inplace=True)  # Forward-fill missing values
+
+# Feature Engineering
+data['Total_Purchase_Amount'] = data['Purchase Amount (USD)'].cumsum()
+
+# Verify numeric columns
+numeric_cols = ['Age', 'Total_Purchase_Amount', 'Previous Purchases']
+missing_cols = [col for col in numeric_cols if col not in data.columns]
+if missing_cols:
+    print(f"Missing numeric columns: {missing_cols}. Adding default values.")
+    for col in missing_cols:
+        data[col] = np.random.randint(1, 100, size=len(data))
+
+# Feature Scaling
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(data[numeric_cols])
+
+# Determine Optimal Number of Clusters (Elbow Method)
+wcss = []
+for i in range(1, 11):
+    kmeans = KMeans(n_clusters=i, init='k-means++', random_state=42)
+    kmeans.fit(scaled_data)
+    wcss.append(kmeans.inertia_)
+
+plt.figure(figsize=(8, 6))
+plt.plot(range(1, 11), wcss, marker='o', color='darkorange', linestyle='--')
+plt.title('Elbow Method', fontsize=16, fontweight='bold')
+plt.xlabel('Number of Clusters', fontsize=14)
+plt.ylabel('WCSS', fontsize=14)
+plt.grid(color='gray', linestyle='--', linewidth=0.5)
+plt.show()
+
+# K-Means Clustering
+kmeans = KMeans(n_clusters=3, init='k-means++', random_state=42)
+kmeans.fit(scaled_data)
+data['Cluster'] = kmeans.labels_
+
+# Visualize Clusters
+plt.figure(figsize=(10, 6))
+sns.scatterplot(
+    x='Age',
+    y='Total_Purchase_Amount',
+    hue='Cluster',
+    palette='viridis',
+    data=data,
+    s=100
+)
+plt.title('Customer Segmentation', fontsize=16, fontweight='bold')
+plt.xlabel('Age', fontsize=14)
+plt.ylabel('Total Purchase Amount', fontsize=14)
+plt.legend(title='Cluster', fontsize=12, title_fontsize=14)
+plt.grid(color='gray', linestyle='--', linewidth=0.5)
+plt.show()
+
+# Analyze Cluster Characteristics
+cluster_means = data.groupby('Cluster')[numeric_cols].mean()
+print("Cluster Means:")
+print(cluster_means)
+
+# Additional Visualizations
+
+# Histogram of Purchase Amounts
+plt.figure(figsize=(8, 6))
+plt.hist(data['Purchase Amount (USD)'], bins=20, color='steelblue', edgecolor='black')
+plt.xlabel('Purchase Amount (USD)', fontsize=14)
+plt.ylabel('Frequency', fontsize=14)
+plt.title('Distribution of Purchase Amounts', fontsize=16, fontweight='bold')
+plt.grid(color='gray', linestyle='--', linewidth=0.5)
+plt.show()
+
+# Boxplot of Purchase Amount by Gender
+if 'Gender' in data.columns:
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(x='Gender', y='Purchase Amount (USD)', data=data, palette='coolwarm')
+    plt.title('Purchase Amount by Gender', fontsize=16, fontweight='bold')
+    plt.xlabel('Gender', fontsize=14)
+    plt.ylabel('Purchase Amount (USD)', fontsize=14)
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    plt.show()
+else:
+    print("Column 'Gender' not found. Skipping gender analysis.")
